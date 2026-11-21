@@ -50,35 +50,79 @@ The planned operations include:
 ## 📂 Project Structure
 
 ```text
+
 distributed-image-processing/
 │
 ├── app/
-│   ├── coordinator.py
-│   ├── worker.py
-│   ├── processor.py
-│   ├── scheduler.py
-│   ├── fault_tolerance.py
-│   ├── database.py
-│   └── schemas.py
+│   ├── __init__.py
+│   │
+│   ├── coordinator/
+│   │   ├── __init__.py
+│   │   ├── main.py
+│   │   ├── routes.py
+│   │   ├── job_manager.py
+│   │   └── worker_registry.py
+│   │
+│   ├── worker/
+│   │   ├── __init__.py
+│   │   ├── main.py
+│   │   ├── routes.py
+│   │   └── processor.py
+│   │
+│   ├── scheduler/
+│   │   ├── __init__.py
+│   │   └── scheduler.py
+│   │
+│   ├── fault_tolerance/
+│   │   ├── __init__.py
+│   │   └── recovery.py
+│   │
+│   ├── storage/
+│   │   ├── __init__.py
+│   │   ├── database.py
+│   │   └── job_repository.py
+│   │
+│   └── common/
+│       ├── __init__.py
+│       ├── schemas.py
+│       ├── config.py
+│       └── constants.py
 │
 ├── frontend/
-│   └── app.py
+│   ├── app.py
+│   └── components.py
 │
 ├── data/
 │   ├── inputs/
+│   │   └── .gitkeep
 │   ├── outputs/
-│   └── jobs.db
+│   │   └── .gitkeep
+│   └── database/
+│       └── .gitkeep
 │
 ├── tests/
 │   ├── test_worker.py
+│   ├── test_coordinator.py
 │   ├── test_scheduler.py
-│   └── test_fault_tolerance.py
+│   ├── test_fault_tolerance.py
+│   └── test_integration.py
 │
-├── requirements.txt
+├── scripts/
+│   ├── start_coordinator.py
+│   ├── start_worker.py
+│   └── benchmark.py
+│
+├── docs/
+│   ├── architecture.md
+│   ├── api_contracts.md
+│   └── testing_and_evaluation.md
+│
 ├── .env.example
 ├── .gitignore
-└── README.md
-```
+├── requirements.txt
+├── README.md
+└── LICENSE
+
 
 ## ⚙️ Installation and Setup
 
