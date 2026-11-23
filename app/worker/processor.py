@@ -11,12 +11,19 @@ def _validate_image(image: np.ndarray) -> None:
     if not isinstance(image, np.ndarray) or image.size == 0:
         raise ValueError("Input must be a non-empty image array.")
 
+    if image.ndim not in (2, 3):
+        raise ValueError("Image must have 2 or 3 dimensions.")
+
+    if image.ndim == 3 and image.shape[2] not in (3, 4):
+        raise ValueError("Color image must have 3 or 4 channels.")
+    
 # Convert a BGR/BGRA image to grayscale (returns as-is if already grayscale)
 def convert_to_grayscale(image: np.ndarray) -> np.ndarray:
     _validate_image(image)
 
     if image.ndim == 2:                                                              
         return image
+    
     if image.shape[2] == 4:
         return cv2.cvtColor(image, cv2.COLOR_BGRA2GRAY)
 
@@ -68,15 +75,17 @@ OPERATIONS: dict[str, Callable[..., np.ndarray]] = {
 def process_image(
     image: np.ndarray,
     operation: str,
-    **params,
+    **params
 ) -> np.ndarray:
     _validate_image(image)
 
-    op_key = operation.strip().lower() if isinstance(operation, str) else ""
+    if not isinstance(operation, str):
+        raise ValueError("Operation must be a string.")
+
+    op_key = operation.strip().lower()
+
     if op_key not in OPERATIONS:
         supported = ", ".join(OPERATIONS.keys())
-        raise ValueError(
-            f"Unsupported operation: {operation!r}. Supported operations: {supported}"
-        )
+        raise ValueError(f"Unsupported operation: {operation!r}. Supported operations: {supported}")
 
     return OPERATIONS[op_key](image, **params)
