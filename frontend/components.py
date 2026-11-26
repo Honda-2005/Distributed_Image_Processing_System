@@ -145,11 +145,104 @@ def _create_demo_data() -> tuple[Path, Path]:
     return db_path, folder
 
 
+def _read_runs(path: Path) -> tuple[list[dict], dict]:
+    """Load one benchmark CSV file: its runs and its first row."""
+    import csv
+
+    with path.open(newline="", encoding="utf-8") as file:
+        rows = list(csv.DictReader(file))
+
+    runs = []
+    for row in rows:
+        jobs = (part.split("=") for part in row["distribution"].split("; "))
+        runs.append({
+            "workers": int(row["workers"]),
+            "elapsed_s": float(row["elapsed_s"]),
+            "failed": int(row["failed"]),
+            "throughput": float(row["throughput"]),
+            "distribution": {name: int(count) for name, count in jobs},
+        })
+    return runs, rows[0]
+
+
+def render_metrics_view(results_dir: Path | None = None) -> None:
+    """Show measured benchmark results. The main dashboard can call this."""
+    from app.common.config import OUTPUT_DIR
+
+    # Reuse the benchmark's calculations so both show the same numbers.
+    scripts_dir = str(PROJECT_ROOT / "scripts")
+    if scripts_dir not in sys.path:
+        sys.path.insert(1, scripts_dir)
+    from benchmark import summarise
+
+    st.header("Performance")
+    files = sorted(
+        Path(results_dir or OUTPUT_DIR).glob("benchmark_*.csv"), reverse=True
+    )
+    if not files:
+        st.info("No results yet. Run: python scripts/benchmark.py")
+        return
+
+    path = st.selectbox(
+        "Benchmark file (newest first)", files, format_func=lambda f: f.name
+    )
+    try:
+        runs, first = _read_runs(path)
+        summary = summarise(runs)
+        repeats = int(first["repeats"])
+        conditions = (
+            f"Operation: {first['operation']} | Images: {first['images']} "
+            f"({first['image_source']}) | Repeats: {repeats} | "
+            f"Jobs in flight per worker: {first['jobs_in_flight_per_worker']} | "
+            f"Workers on: {first['workers_location']} | "
+            f"CPUs: {first['client_logical_cpus']} | {first['date']}"
+        )
+    except (OSError, KeyError, IndexError, ValueError):
+        st.warning(f"Could not read {path.name}.")
+        return
+
+    st.caption(conditions)
+    if repeats < 3:
+        st.warning("Fewer than 3 repeats: treat this as a check, not a final result.")
+    if any(row["failed"] for row in summary):
+        st.warning("Some jobs failed, so speedup is not shown for every row.")
+
+    st.table([
+        {
+            "Workers": str(row["workers"]),
+            "Median time (s)": f"{row['median_s']:.3f}",
+            "Throughput (jobs/s)": f"{row['throughput']:.2f}",
+            "Speedup": f"{row['speedup']:.2f}" if row["speedup"] else "n/a",
+            "Failed": str(row["failed"]),
+            "Jobs per worker": row["jobs"],
+        }
+        for row in summary
+    ])
+
+    labels = [str(row["workers"]) for row in summary]
+    left, right = st.columns(2)
+    for column, title, key in (
+        (left, "Median time (s)", "median_s"),
+        (right, "Throughput (jobs/s)", "throughput"),
+    ):
+        with column:
+            st.subheader(title)
+            st.bar_chart(
+                {"Workers": labels, title: [row[key] for row in summary]},
+                x="Workers",
+                y=title,
+            )
+
+
 if __name__ == "__main__":
-    # Preview with sample data:  streamlit run frontend/components.py -- --demo
-    st.set_page_config(page_title="Results gallery", layout="wide")
-    if "--demo" in sys.argv:
-        demo_db, demo_folder = _create_demo_data()
-        render_results_gallery(demo_db, demo_folder)
-    else:
-        render_results_gallery()
+    # Preview with sample jobs:  streamlit run frontend/components.py -- --demo
+    st.set_page_config(page_title="Results and performance", layout="wide")
+    gallery_tab, metrics_tab = st.tabs(["Results gallery", "Performance"])
+    with gallery_tab:
+        if "--demo" in sys.argv:
+            demo_db, demo_folder = _create_demo_data()
+            render_results_gallery(demo_db, demo_folder)
+        else:
+            render_results_gallery()
+    with metrics_tab:
+        render_metrics_view()
